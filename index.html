@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EDW Treinamentos</title>
+  <title>EDW Treinamentos - Google Sheets DB</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -23,33 +23,12 @@
 
   <div id="root"></div>
 
-  <script type="text/babel" data-type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+  <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // --- CONFIGURAÇÃO DO FIREBASE (PREENCHA AQUI) ---
-    const firebaseConfig = {
-      // COPIE A API KEY COMPLETA DA SUA FOTO E COLE ABAIXO:
-      apiKey: "COLE_AQUI_SUA_API_KEY_COMPLETA", 
-      authDomain: "edw-treinamentos-61d06.firebaseapp.com",
-      projectId: "edw-treinamentos-61d06",
-      storageBucket: "edw-treinamentos-61d06.firebasestorage.app",
-      messagingSenderId: "75949574229",
-      // COPIE O APP ID COMPLETO DA SUA FOTO E COLE ABAIXO:
-      appId: "COLE_AQUI_SEU_APP_ID_COMPLETO" 
-    };
-
-    let app, auth, db, appId = firebaseConfig.projectId;
-    try {
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-    } catch (e) {
-      console.error("Erro ao conectar ao Firebase:", e);
-    }
+    // --- CONFIGURAÇÃO DO GOOGLE SHEETS (SHEETDB) ---
+    // Crie sua conta em sheetdb.io e cole o link da sua API abaixo:
+    const SHEETDB_API_URL = "COLE_AQUI_SEU_LINK_DO_SHEETDB";
 
     const CATEGORIES = ["Todos os Treinamentos", "Digitação", "FGTS", "Aumento de Margem", "Portabilidade", "Sistemas", "Ferramentas"];
 
@@ -67,12 +46,12 @@
       { id: 11, title: "Usar as ferramentas de disparo whatsapp", author: "Treinamento EDW", category: "Ferramentas", duration: "5:43", thumb: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?ixlib=rb-4.0.3&auto=format&fit=crop&w=640&q=80", localVideo: "./assets/Usar as ferramentas de disparo whatsapp.mp4", driveId: "1pd2PyBNanGWoLCIiRb3Px_WjTw8FR2RX" }
     ];
 
-    function SidebarItem({ iconClass, label, active, isOpen, isSubItem = false }) {
+    function SidebarItem({ iconClass, label, active, isOpen }) {
       if (!isOpen) return null;
       return (
         <div className={`flex items-center px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors ${
           active ? 'bg-blue-600/10 text-blue-400 font-medium' : 'hover:bg-[#272727] text-gray-300'
-        } ${isSubItem ? 'mt-1' : 'mb-1'}`}>
+        }`}>
           <div className={`mr-3 w-5 text-center ${active ? 'text-blue-400' : 'text-gray-400'}`}>
             <i className={iconClass}></i>
           </div>
@@ -81,12 +60,11 @@
       );
     }
 
-    function VideoCard({ video, viewCount }) {
+    function VideoCard({ video }) {
       return (
         <div className="flex flex-col cursor-pointer group h-full">
           <div className="relative w-full aspect-video rounded-xl overflow-hidden mb-3 border border-[#303030] bg-[#1a1a1a]">
             <img src={video.thumb} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90 group-hover:opacity-100" />
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
             <div className="absolute bottom-1.5 right-1.5 bg-black/80 text-white text-xs font-medium px-1.5 py-0.5 rounded backdrop-blur-sm">
               {video.duration}
             </div>
@@ -100,9 +78,8 @@
             <h3 className="text-gray-100 text-[15px] font-semibold line-clamp-2 leading-snug group-hover:text-blue-400" title={video.title}>
               {video.title}
             </h3>
-            <div className="text-gray-400 text-sm mt-1.5 flex items-center gap-2">
+            <div className="text-gray-400 text-sm mt-1.5">
               <span className="bg-[#222] px-2 py-0.5 rounded text-xs border border-[#333]">{video.category}</span>
-              <span className="text-xs">• {viewCount || 0} visualizações</span>
             </div>
           </div>
         </div>
@@ -116,131 +93,116 @@
       const [currentVideo, setCurrentVideo] = useState(null);
       const [videoSource, setVideoSource] = useState('drive');
       const [searchQuery, setSearchQuery] = useState("");
+      
       const [user, setUser] = useState(null);
       const [isAdmin, setIsAdmin] = useState(false);
-      const [viewCounts, setViewCounts] = useState({});
+      
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [authMode, setAuthMode] = useState('login');
       const [authEmail, setAuthEmail] = useState("");
       const [authPassword, setAuthPassword] = useState("");
       const [authName, setAuthName] = useState("");
       const [authError, setAuthError] = useState("");
+      
       const [comments, setComments] = useState([]);
       const [newComment, setNewComment] = useState("");
       const [registeredUsers, setRegisteredUsers] = useState([]);
 
+      // Carregar Usuários e Comentários da Planilha
       useEffect(() => {
-        if (!auth) return;
-        const initAuth = async () => {
-          try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-              await signInAnonymously(auth);
-            }
-          } catch (e) {}
-        };
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-          if (currentUser) {
-             setUser(currentUser);
-             setIsAdmin(currentUser.email === 'admin@edw.com');
-          } else {
-             setUser(null);
-             setIsAdmin(false);
-             try { await signInAnonymously(auth); } catch(e) {}
-          }
-        });
-        initAuth();
-        return () => unsubscribe();
+        if (SHEETDB_API_URL.includes("COLE_AQUI")) return;
+        
+        // Simulação de carregamento inicial
+        fetch(`${SHEETDB_API_URL}?sheet=usuarios`)
+          .then(res => res.json())
+          .then(data => setRegisteredUsers(data))
+          .catch(err => console.error("Erro ao carregar usuários:", err));
       }, []);
 
       useEffect(() => {
-        if (!user || !db) return;
-        const viewsRef = collection(db, 'artifacts', appId, 'public', 'data', 'videoViews');
-        const unsubscribe = onSnapshot(viewsRef, (snapshot) => {
-          const counts = {};
-          snapshot.forEach(docSnap => { counts[docSnap.id] = docSnap.data().views || 0; });
-          setViewCounts(counts);
-        });
-        return () => unsubscribe();
-      }, [user]);
+        if (currentView === 'video' && currentVideo) {
+          fetch(`${SHEETDB_API_URL}?sheet=comentarios&videoId=${currentVideo.id}`)
+            .then(res => res.json())
+            .then(data => setComments(data.reverse()))
+            .catch(err => console.error("Erro ao carregar comentários:", err));
+        }
+      }, [currentView, currentVideo]);
 
-      useEffect(() => {
-        if (!user || !db || currentView !== 'video' || !currentVideo) return;
-        const commentsRef = collection(db, 'artifacts', appId, 'public', 'data', `comments_video_${currentVideo.id}`);
-        const unsubscribe = onSnapshot(commentsRef, (snapshot) => {
-          const fetchedComments = [];
-          snapshot.forEach(docSnap => { fetchedComments.push({ id: docSnap.id, ...docSnap.data() }); });
-          fetchedComments.sort((a, b) => b.createdAt - a.createdAt);
-          setComments(fetchedComments);
-        });
-        return () => unsubscribe();
-      }, [user, currentVideo, currentView]);
-
-      useEffect(() => {
-        if (!user || !db || currentView !== 'admin' || !isAdmin) return;
-        const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'app_users');
-        const unsubscribe = onSnapshot(usersRef, (snapshot) => {
-          const fetchedUsers = [];
-          snapshot.forEach(docSnap => { fetchedUsers.push({ id: docSnap.id, ...docSnap.data() }); });
-          setRegisteredUsers(fetchedUsers);
-        });
-        return () => unsubscribe();
-      }, [user, currentView, isAdmin]);
-
-      const playVideo = async (video) => {
+      const playVideo = (video) => {
         setCurrentVideo(video);
         setCurrentView("video");
         setIsSidebarOpen(false);
-        setVideoSource(video.driveId ? 'drive' : 'local');
+        setVideoSource('drive');
         window.scrollTo(0, 0);
-
-        if (user && db) {
-          try {
-            const videoRef = doc(db, 'artifacts', appId, 'public', 'data', 'videoViews', String(video.id));
-            await setDoc(videoRef, { views: increment(1) }, { merge: true });
-          } catch (e) {}
-        }
       };
 
       const handleLogin = async (e) => {
         e.preventDefault();
         setAuthError("");
-        try {
-          await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        
+        const found = registeredUsers.find(u => u.email === authEmail && u.password === authPassword);
+        
+        if (found) {
+          setUser(found);
+          setIsAdmin(found.email === 'admin@edw.com');
           setShowAuthModal(false);
-          setAuthEmail(""); setAuthPassword("");
-        } catch (err) {
-           setAuthError("Erro: " + (err.code === 'auth/invalid-api-key' ? "Chave de API inválida no código." : err.message));
+        } else {
+          setAuthError("E-mail ou senha incorretos.");
         }
       };
 
       const handleRegister = async (e) => {
         e.preventDefault();
         setAuthError("");
+
+        const newUser = {
+          name: authName,
+          email: authEmail,
+          password: authPassword,
+          role: authEmail === 'admin@edw.com' ? 'admin' : 'user',
+          createdAt: new Date().toISOString()
+        };
+
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-          await updateProfile(userCredential.user, { displayName: authName });
-          if (db) {
-            const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'app_users', userCredential.user.uid);
-            await setDoc(userRef, { name: authName, email: authEmail, role: authEmail === 'admin@edw.com' ? 'admin' : 'user', createdAt: Date.now() });
-          }
+          await fetch(`${SHEETDB_API_URL}?sheet=usuarios`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [newUser] })
+          });
+          
+          setRegisteredUsers([...registeredUsers, newUser]);
+          setUser(newUser);
+          setIsAdmin(newUser.email === 'admin@edw.com');
           setShowAuthModal(false);
-          setAuthEmail(""); setAuthPassword(""); setAuthName("");
         } catch (err) {
-           setAuthError("Erro: " + (err.code === 'auth/invalid-api-key' ? "Chave de API inválida no código." : err.message));
+          setAuthError("Erro ao salvar na planilha. Verifique o link do SheetDB.");
         }
       };
 
       const handleAddComment = async (e) => {
         e.preventDefault();
-        if (!user || user.isAnonymous) { setShowAuthModal(true); return; }
+        if (!user) { setShowAuthModal(true); return; }
         if (!newComment.trim()) return;
+
+        const commentObj = {
+          videoId: currentVideo.id,
+          text: newComment,
+          authorName: user.name,
+          authorEmail: user.email,
+          createdAt: new Date().toISOString()
+        };
+
         try {
-          const commentsRef = collection(db, 'artifacts', appId, 'public', 'data', `comments_video_${currentVideo.id}`);
-          await addDoc(commentsRef, { text: newComment, authorName: user.displayName || 'Utilizador', authorEmail: user.email, authorId: user.uid, createdAt: Date.now() });
+          await fetch(`${SHEETDB_API_URL}?sheet=comentarios`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [commentObj] })
+          });
+          setComments([commentObj, ...comments]);
           setNewComment("");
-        } catch (err) {}
+        } catch (err) {
+          console.error("Erro ao salvar comentário");
+        }
       };
 
       const filteredVideos = VIDEOS.filter(v => {
@@ -268,13 +230,13 @@
               )}
             </div>
             <div>
-              {user && !user.isAnonymous ? (
+              {user ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm hidden md:block">{user.displayName}</span>
-                  <button onClick={() => signOut(auth)} className="text-xs text-gray-400 hover:text-white">Sair</button>
+                  <span className="text-sm font-medium">{user.name}</span>
+                  <button onClick={() => setUser(null)} className="text-xs text-gray-400 hover:text-white">Sair</button>
                 </div>
               ) : (
-                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium">Entrar</button>
+                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors">Entrar</button>
               )}
             </div>
           </header>
@@ -286,9 +248,9 @@
                 {isAdmin && <div onClick={() => setCurrentView("admin")}><SidebarItem iconClass="fa-solid fa-gear" label="Painel Admin" active={currentView === 'admin'} isOpen={true} /></div>}
               </div>
               <div className="py-4">
-                <h3 className="px-5 mb-2 text-xs font-semibold text-gray-500 uppercase">Módulos</h3>
+                <h3 className="px-5 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-widest">Módulos</h3>
                 {CATEGORIES.map(cat => (
-                  <div key={cat} onClick={() => {setActiveCategory(cat); setCurrentView("home");}}><SidebarItem iconClass="fa-solid fa-circle-play" label={cat} active={activeCategory === cat} isOpen={true} isSubItem /></div>
+                  <div key={cat} onClick={() => {setActiveCategory(cat); setCurrentView("home");}}><SidebarItem iconClass="fa-solid fa-circle-play" label={cat} active={activeCategory === cat} isOpen={true} /></div>
                 ))}
               </div>
             </aside>
@@ -298,7 +260,7 @@
                 <div className="p-6 max-w-7xl mx-auto">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredVideos.map(v => (
-                      <div key={v.id} onClick={() => playVideo(v)}><VideoCard video={v} viewCount={viewCounts[v.id]} /></div>
+                      <div key={v.id} onClick={() => playVideo(v)}><VideoCard video={v} /></div>
                     ))}
                   </div>
                 </div>
@@ -320,44 +282,32 @@
                     </div>
                     <h1 className="text-2xl font-bold mt-4">{currentVideo.title}</h1>
                     <div className="mt-4 p-4 bg-[#181818] rounded-xl border border-[#303030]">
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-2">
-                        <span>{viewCounts[currentVideo.id] || 0} visualizações</span>
+                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-2 font-medium">
                         <span>Duração: {currentVideo.duration}</span>
                       </div>
-                      <p className="text-sm text-gray-300">Treinamento operacional para a equipe EDW.</p>
-                      {videoSource === 'drive' && (
-                        <a href={`https://drive.google.com/file/d/${currentVideo.driveId}/view`} target="_blank" className="mt-4 inline-block text-xs bg-gray-700 px-3 py-1.5 rounded-lg">Problemas no vídeo? Clique aqui</a>
-                      )}
+                      <p className="text-sm text-gray-300">Treinamento operacional para a equipe EDW. Dados salvos na planilha Google.</p>
                     </div>
                     
-                    <div className="mt-8">
-                      <h3 className="text-lg font-bold mb-4">Comentários ({comments.length})</h3>
+                    <div className="mt-8 border-t border-[#303030] pt-6">
+                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i className="fa-regular fa-comments"></i> Comentários ({comments.length})
+                      </h3>
                       <form onSubmit={handleAddComment} className="mb-6">
-                        <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Escreva um comentário..." className="w-full bg-transparent border-b border-[#303030] outline-none text-sm py-2 resize-none"></textarea>
-                        <button type="submit" className="mt-2 bg-blue-600 px-4 py-1.5 rounded-full text-xs font-bold">Postar</button>
+                        <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Escreva um comentário..." className="w-full bg-transparent border-b border-[#303030] outline-none text-sm py-2 resize-none focus:border-blue-500 transition-colors"></textarea>
+                        <button type="submit" className="mt-2 bg-blue-600 px-6 py-2 rounded-full text-xs font-bold hover:bg-blue-700">Postar</button>
                       </form>
                       <div className="space-y-6">
-                        {comments.map(c => (
-                          <div key={c.id} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-xs font-bold">{c.authorName[0]}</div>
-                            <div>
+                        {comments.map((c, i) => (
+                          <div key={i} className="flex gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-900 flex items-center justify-center text-xs font-bold border border-blue-400/30">{c.authorName ? c.authorName[0].toUpperCase() : '?'}</div>
+                            <div className="flex-1">
                               <div className="flex gap-2 items-center"><span className="text-sm font-bold">{c.authorName}</span><span className="text-[10px] text-gray-500">{new Date(c.createdAt).toLocaleDateString()}</span></div>
                               <p className="text-sm text-gray-300 mt-1">{c.text}</p>
                             </div>
                           </div>
                         ))}
+                        {comments.length === 0 && <p className="text-sm text-gray-500 italic">Seja o primeiro a comentar!</p>}
                       </div>
-                    </div>
-                  </div>
-                  <div className="lg:w-80">
-                    <h4 className="font-bold mb-4">Aulas do Módulo</h4>
-                    <div className="space-y-3">
-                      {VIDEOS.filter(v => v.category === currentVideo.category && v.id !== currentVideo.id).map(v => (
-                        <div key={v.id} onClick={() => playVideo(v)} className="flex gap-2 cursor-pointer hover:bg-[#181818] p-1 rounded-lg">
-                          <img src={v.thumb} className="w-24 aspect-video object-cover rounded" />
-                          <span className="text-xs font-medium line-clamp-2">{v.title}</span>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </div>
@@ -365,16 +315,20 @@
 
               {currentView === 'admin' && isAdmin && (
                 <div className="p-8 max-w-5xl mx-auto">
-                  <h2 className="text-2xl font-bold mb-6">Gestão de Usuários</h2>
+                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i className="fa-solid fa-users-gear text-blue-500"></i> Gestão de Usuários (Planilha)
+                  </h2>
                   <div className="bg-[#181818] rounded-xl overflow-hidden border border-[#303030]">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-[#222] text-gray-400">
-                        <tr><th className="p-4">Nome</th><th className="p-4">E-mail</th><th className="p-4">Data</th></tr>
+                      <thead className="bg-[#222] text-gray-400 uppercase text-[11px] tracking-wider">
+                        <tr><th className="p-4">Nome</th><th className="p-4">E-mail</th><th className="p-4">Criado em</th></tr>
                       </thead>
                       <tbody className="divide-y divide-[#303030]">
-                        {registeredUsers.map(u => (
-                          <tr key={u.id} className="hover:bg-[#222]">
-                            <td className="p-4">{u.name}</td><td className="p-4">{u.email}</td><td className="p-4">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        {registeredUsers.map((u, i) => (
+                          <tr key={i} className="hover:bg-[#222] transition-colors">
+                            <td className="p-4 font-medium">{u.name}</td>
+                            <td className="p-4 text-gray-400">{u.email}</td>
+                            <td className="p-4 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -386,21 +340,21 @@
           </div>
 
           {showAuthModal && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-              <div className="bg-[#181818] p-8 rounded-2xl border border-[#303030] w-full max-w-md relative">
-                <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-400"><i className="fa-solid fa-xmark"></i></button>
-                <h2 className="text-xl font-bold mb-6 text-center">{authMode === 'login' ? 'Login' : 'Criar Conta'}</h2>
-                {authError && <div className="bg-red-900/20 text-red-500 p-3 rounded-lg mb-4 text-xs">{authError}</div>}
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
+              <div className="bg-[#181818] p-8 rounded-2xl border border-[#303030] w-full max-w-md relative shadow-2xl">
+                <button onClick={() => {setShowAuthModal(false); setAuthError("");}} className="absolute top-4 right-4 text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-lg"></i></button>
+                <h2 className="text-2xl font-bold mb-6 text-center">{authMode === 'login' ? 'Acessar Treinamentos' : 'Criar Conta EDW'}</h2>
+                {authError && <div className="bg-red-900/20 text-red-500 p-3 rounded-lg mb-4 text-xs border border-red-500/20">{authError}</div>}
                 <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                  {authMode === 'register' && <input type="text" placeholder="Nome" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm" value={authName} onChange={e=>setAuthName(e.target.value)} />}
-                  <input type="email" placeholder="E-mail" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} />
-                  <input type="password" placeholder="Senha (min. 6 dígitos)" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
-                  <button type="submit" className="w-full bg-blue-600 py-3 rounded-lg font-bold">Confirmar</button>
+                  {authMode === 'register' && <input type="text" placeholder="Seu Nome Completo" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm focus:border-blue-500 transition-colors" value={authName} onChange={e=>setAuthName(e.target.value)} />}
+                  <input type="email" placeholder="E-mail Corporativo" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm focus:border-blue-500 transition-colors" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} />
+                  <input type="password" placeholder="Senha" required className="w-full bg-[#121212] border border-[#303030] p-3 rounded-lg outline-none text-sm focus:border-blue-500 transition-colors" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
+                  <button type="submit" className="w-full bg-blue-600 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg">Confirmar</button>
                 </form>
-                <div className="mt-4 text-center text-xs text-gray-400">
+                <div className="mt-6 text-center text-xs text-gray-500 border-t border-[#303030] pt-4">
                   {authMode === 'login' ? 
-                    <p>Novo por aqui? <button onClick={()=>setAuthMode('register')} className="text-blue-400">Cadastre-se</button></p> : 
-                    <p>Já tem conta? <button onClick={()=>setAuthMode('login')} className="text-blue-400">Faça login</button></p>
+                    <p>Não tem acesso? <button onClick={()=>setAuthMode('register')} className="text-blue-400 font-medium">Cadastre-se aqui</button></p> : 
+                    <p>Já possui conta? <button onClick={()=>setAuthMode('login')} className="text-blue-400 font-medium">Faça login</button></p>
                   }
                 </div>
               </div>

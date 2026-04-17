@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EDW Treinamentos - Google Sheets DB</title>
+  <title>EDW Treinamentos - Painel Admin Planilha</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -106,15 +106,23 @@
       const [comments, setComments] = useState([]);
       const [newComment, setNewComment] = useState("");
       const [registeredUsers, setRegisteredUsers] = useState([]);
+      
+      // Estado para o painel admin
+      const [editingUser, setEditingUser] = useState(null);
+      const [newPassValue, setNewPassValue] = useState("");
 
       // Carregar Usuários da Planilha
-      useEffect(() => {
+      const loadUsers = () => {
         fetch(`${SHEETDB_API_URL}?sheet=usuarios`)
           .then(res => res.json())
           .then(data => {
             if (Array.isArray(data)) setRegisteredUsers(data);
           })
           .catch(err => console.error("Erro ao carregar usuários:", err));
+      };
+
+      useEffect(() => {
+        loadUsers();
       }, []);
 
       // Carregar Comentários ao abrir um vídeo
@@ -210,6 +218,42 @@
         }
       };
 
+      // --- FUNÇÕES DO PAINEL ADMIN ---
+      
+      const handleDeleteUser = async (email) => {
+        if (!confirm(`Tem certeza que deseja remover o usuário ${email}?`)) return;
+        
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}/email/${email}?sheet=usuarios`, {
+            method: 'DELETE'
+          });
+          if (res.ok) {
+            setRegisteredUsers(registeredUsers.filter(u => u.email !== email));
+          }
+        } catch (err) {
+          console.error("Erro ao deletar");
+        }
+      };
+
+      const handleUpdatePassword = async () => {
+        if (!editingUser || !newPassValue) return;
+
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}/email/${editingUser}?sheet=usuarios`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { password: newPassValue } })
+          });
+          if (res.ok) {
+            setRegisteredUsers(registeredUsers.map(u => u.email === editingUser ? { ...u, password: newPassValue } : u));
+            setEditingUser(null);
+            setNewPassValue("");
+          }
+        } catch (err) {
+          console.error("Erro ao mudar senha");
+        }
+      };
+
       const filteredVideos = VIDEOS.filter(v => {
         const matchCat = activeCategory === "Todos os Treinamentos" || v.category === activeCategory;
         const matchSearch = v.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -238,7 +282,7 @@
               {user ? (
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium">{user.name}</span>
-                  <button onClick={() => setUser(null)} className="text-xs text-gray-400 hover:text-white">Sair</button>
+                  <button onClick={() => {setUser(null); setIsAdmin(false); setCurrentView("home");}} className="text-xs text-gray-400 hover:text-white">Sair</button>
                 </div>
               ) : (
                 <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors">Entrar</button>
@@ -250,7 +294,7 @@
             <aside className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-[#0f0f0f] transition-all duration-300 border-r border-[#303030] overflow-y-auto overflow-x-hidden`}>
               <div className="py-4 border-b border-[#303030]">
                 <div onClick={() => {setCurrentView("home"); setActiveCategory("Todos os Treinamentos");}}><SidebarItem iconClass="fa-solid fa-house" label="Início" active={currentView === 'home' && activeCategory === "Todos os Treinamentos"} isOpen={true} /></div>
-                {isAdmin && <div onClick={() => setCurrentView("admin")}><SidebarItem iconClass="fa-solid fa-gear" label="Painel Admin" active={currentView === 'admin'} isOpen={true} /></div>}
+                {isAdmin && <div onClick={() => setCurrentView("admin")}><SidebarItem iconClass="fa-solid fa-users-gear" label="Painel Admin" active={currentView === 'admin'} isOpen={true} /></div>}
               </div>
               <div className="py-4">
                 <h3 className="px-5 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-widest">Módulos</h3>
@@ -319,21 +363,70 @@
               )}
 
               {currentView === 'admin' && isAdmin && (
-                <div className="p-8 max-w-5xl mx-auto">
-                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <i className="fa-solid fa-users-gear text-blue-500"></i> Gestão de Usuários (Planilha)
-                  </h2>
-                  <div className="bg-[#181818] rounded-xl overflow-hidden border border-[#303030]">
+                <div className="p-8 max-w-6xl mx-auto">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <i className="fa-solid fa-users-gear text-blue-500"></i> Gestão de Usuários
+                    </h2>
+                    <div className="text-xs text-gray-500 px-3 py-1 bg-[#181818] rounded-full border border-[#303030]">Total: {registeredUsers.length} usuários</div>
+                  </div>
+
+                  <div className="bg-[#181818] rounded-xl overflow-hidden border border-[#303030] shadow-xl">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-[#222] text-gray-400 uppercase text-[11px] tracking-wider">
-                        <tr><th className="p-4">Nome</th><th className="p-4">E-mail</th><th className="p-4">Criado em</th></tr>
+                      <thead className="bg-[#121212] text-gray-400 uppercase text-[10px] tracking-widest font-bold">
+                        <tr>
+                          <th className="p-4">Nome</th>
+                          <th className="p-4">E-mail</th>
+                          <th className="p-4">Senha Atual</th>
+                          <th className="p-4">Criado em</th>
+                          <th className="p-4 text-center">Ações</th>
+                        </tr>
                       </thead>
                       <tbody className="divide-y divide-[#303030]">
+                        {registeredUsers.length === 0 && (
+                          <tr><td colSpan="5" className="p-8 text-center text-gray-500 italic">Carregando usuários da planilha...</td></tr>
+                        )}
                         {registeredUsers.map((u, i) => (
                           <tr key={i} className="hover:bg-[#222] transition-colors">
                             <td className="p-4 font-medium">{u.name}</td>
                             <td className="p-4 text-gray-400">{u.email}</td>
+                            <td className="p-4 text-gray-500 font-mono text-xs">
+                              {editingUser === u.email ? (
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="text" 
+                                    value={newPassValue} 
+                                    onChange={e => setNewPassValue(e.target.value)}
+                                    placeholder="Nova senha"
+                                    className="bg-[#0a0a0a] border border-blue-500 px-2 py-1 rounded text-white text-xs outline-none"
+                                  />
+                                  <button onClick={handleUpdatePassword} className="text-green-500 hover:text-green-400"><i className="fa-solid fa-check"></i></button>
+                                  <button onClick={() => {setEditingUser(null); setNewPassValue("");}} className="text-red-500 hover:text-red-400"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                              ) : (
+                                <span>{u.password}</span>
+                              )}
+                            </td>
                             <td className="p-4 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                            <td className="p-4 text-center flex justify-center gap-4">
+                              <button 
+                                onClick={() => {setEditingUser(u.email); setNewPassValue(u.password);}}
+                                className="text-blue-400 hover:text-blue-300 transition-transform active:scale-90"
+                                title="Mudar Senha"
+                              >
+                                <i className="fa-solid fa-key"></i>
+                              </button>
+                              
+                              {u.email !== 'admin@edw.com' && (
+                                <button 
+                                  onClick={() => handleDeleteUser(u.email)}
+                                  className="text-red-500 hover:text-red-400 transition-transform active:scale-90"
+                                  title="Remover Usuário"
+                                >
+                                  <i className="fa-solid fa-trash-can"></i>
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

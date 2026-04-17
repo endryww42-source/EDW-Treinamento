@@ -27,8 +27,7 @@
     const { useState, useEffect } = React;
 
     // --- CONFIGURAÇÃO DO GOOGLE SHEETS (SHEETDB) ---
-    // Crie sua conta em sheetdb.io e cole o link da sua API abaixo:
-    const SHEETDB_API_URL = "COLE_AQUI_SEU_LINK_DO_SHEETDB";
+    const SHEETDB_API_URL = "https://sheetdb.io/api/v1/xi5hgfhlhrr4e";
 
     const CATEGORIES = ["Todos os Treinamentos", "Digitação", "FGTS", "Aumento de Margem", "Portabilidade", "Sistemas", "Ferramentas"];
 
@@ -108,22 +107,24 @@
       const [newComment, setNewComment] = useState("");
       const [registeredUsers, setRegisteredUsers] = useState([]);
 
-      // Carregar Usuários e Comentários da Planilha
+      // Carregar Usuários da Planilha
       useEffect(() => {
-        if (SHEETDB_API_URL.includes("COLE_AQUI")) return;
-        
-        // Simulação de carregamento inicial
         fetch(`${SHEETDB_API_URL}?sheet=usuarios`)
           .then(res => res.json())
-          .then(data => setRegisteredUsers(data))
+          .then(data => {
+            if (Array.isArray(data)) setRegisteredUsers(data);
+          })
           .catch(err => console.error("Erro ao carregar usuários:", err));
       }, []);
 
+      // Carregar Comentários ao abrir um vídeo
       useEffect(() => {
         if (currentView === 'video' && currentVideo) {
           fetch(`${SHEETDB_API_URL}?sheet=comentarios&videoId=${currentVideo.id}`)
             .then(res => res.json())
-            .then(data => setComments(data.reverse()))
+            .then(data => {
+              if (Array.isArray(data)) setComments(data.reverse());
+            })
             .catch(err => console.error("Erro ao carregar comentários:", err));
         }
       }, [currentView, currentVideo]);
@@ -164,18 +165,22 @@
         };
 
         try {
-          await fetch(`${SHEETDB_API_URL}?sheet=usuarios`, {
+          const response = await fetch(`${SHEETDB_API_URL}?sheet=usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: [newUser] })
           });
           
-          setRegisteredUsers([...registeredUsers, newUser]);
-          setUser(newUser);
-          setIsAdmin(newUser.email === 'admin@edw.com');
-          setShowAuthModal(false);
+          if (response.ok) {
+            setRegisteredUsers([...registeredUsers, newUser]);
+            setUser(newUser);
+            setIsAdmin(newUser.email === 'admin@edw.com');
+            setShowAuthModal(false);
+          } else {
+            throw new Error();
+          }
         } catch (err) {
-          setAuthError("Erro ao salvar na planilha. Verifique o link do SheetDB.");
+          setAuthError("Erro ao salvar na planilha. Certifique-se de que o SheetDB tem acesso à planilha.");
         }
       };
 

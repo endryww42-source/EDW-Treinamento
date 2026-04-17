@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EDW Treinamentos - Início</title>
+  <title>EDW Treinamentos - Sistema Integrado</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,6 +18,7 @@
     ::-webkit-scrollbar-thumb:hover { background: #555; }
     .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
   </style>
 </head>
 <body class="bg-[#0f0f0f] text-gray-200">
@@ -69,8 +70,10 @@
       const [currentVideo, setCurrentVideo] = useState(null);
       const [searchQuery, setSearchQuery] = useState("");
       const [activeCategory, setActiveCategory] = useState("Todos os Treinamentos");
+      
       const [user, setUser] = useState(null);
       const [isAdmin, setIsAdmin] = useState(false);
+      
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [authMode, setAuthMode] = useState('login');
       const [authEmail, setAuthEmail] = useState("");
@@ -82,6 +85,9 @@
       const [sheetVideos, setSheetVideos] = useState([]); 
       const [comments, setComments] = useState([]);
       const [newComment, setNewComment] = useState("");
+
+      const [showVideoForm, setShowVideoForm] = useState(false);
+      const [newVideo, setNewVideo] = useState({ title: "", category: "Digitação", duration: "", thumb: "", driveId: "", description: "", downloadLink: "" });
 
       const loadData = async () => {
         try {
@@ -152,13 +158,66 @@
         } catch (e) {}
       };
 
+      const handleUpdateRole = async (email, currentRole) => {
+        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+        if (!confirm(`Deseja alterar o cargo de ${email} para ${newRole.toUpperCase()}?`)) return;
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}/email/${email}?sheet=usuarios`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { role: newRole } })
+          });
+          if (res.ok) {
+            setRegisteredUsers(registeredUsers.map(u => u.email === email ? { ...u, role: newRole } : u));
+            if (user && user.email === email) setIsAdmin(newRole === 'admin');
+          }
+        } catch (e) {}
+      };
+
+      const handleDeleteUser = async (email) => {
+        if (!confirm(`Remover permanentemente o acesso de ${email}?`)) return;
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}/email/${email}?sheet=usuarios`, { method: 'DELETE' });
+          if (res.ok) {
+            setRegisteredUsers(registeredUsers.filter(u => u.email !== email));
+            if (user && user.email === email) { setUser(null); setIsAdmin(false); setCurrentView("home"); }
+          }
+        } catch (e) {}
+      };
+
+      const handleAddVideo = async (e) => {
+        e.preventDefault();
+        const videoData = { ...newVideo, id: Date.now(), createdAt: new Date().toISOString() };
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}?sheet=aulas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [videoData] })
+          });
+          if (res.ok) {
+            setSheetVideos([videoData, ...sheetVideos]);
+            setNewVideo({ title: "", category: "Digitação", duration: "", thumb: "", driveId: "", description: "", downloadLink: "" });
+            setShowVideoForm(false);
+          }
+        } catch (e) { alert("Erro ao salvar vídeo."); }
+      };
+
+      const handleDeleteVideo = async (id) => {
+        if (!confirm("Excluir este vídeo definitivamente?")) return;
+        try {
+          const res = await fetch(`${SHEETDB_API_URL}/id/${id}?sheet=aulas`, { method: 'DELETE' });
+          if (res.ok) setSheetVideos(sheetVideos.filter(v => v.id != id));
+        } catch (e) {}
+      };
+
       const filteredVideos = allVideos.filter(v => 
         (activeCategory === "Todos os Treinamentos" || v.category === activeCategory) &&
         v.title.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
       return (
-        <div className="flex flex-col h-screen overflow-hidden font-sans">
+        <div className="flex flex-col h-screen overflow-hidden font-sans bg-[#0f0f0f]">
+          {/* HEADER */}
           <header className="flex items-center justify-between px-6 h-16 bg-[#0f0f0f] border-b border-[#222] sticky top-0 z-50">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => {setCurrentView("home"); setActiveCategory("Todos os Treinamentos");}}>
               <div className="bg-blue-600 p-2 rounded-xl flex items-center justify-center shadow-lg">
@@ -171,7 +230,7 @@
               {currentView !== 'admin' && (
                 <div className="flex items-center bg-[#181818] border border-[#333] rounded-full px-5 py-2 focus-within:border-blue-500 transition-all">
                   <i className="fa-solid fa-magnifying-glass text-gray-500 mr-3 text-xs"></i>
-                  <input type="text" placeholder="Pesquisar treinamento..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="bg-transparent outline-none w-full text-sm text-gray-200" />
+                  <input type="text" placeholder="Pesquisar formação..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="bg-transparent outline-none w-full text-sm text-gray-200" />
                 </div>
               )}
             </div>
@@ -183,8 +242,12 @@
                      <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{isAdmin ? 'Admin' : 'Membro'}</p>
                      <p className="text-sm font-semibold text-blue-400">{user.name.split(' ')[0]}</p>
                   </div>
-                  {isAdmin && <a href="admin.html" className="w-9 h-9 flex items-center justify-center bg-zinc-800 rounded-lg border border-zinc-700 text-blue-500 hover:bg-zinc-700" title="Gestão"><i className="fa-solid fa-gear"></i></a>}
-                  <button onClick={() => {setUser(null); setIsAdmin(false);}} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-red-400"><i className="fa-solid fa-power-off"></i></button>
+                  {isAdmin && (
+                    <button onClick={() => setCurrentView(currentView === 'admin' ? 'home' : 'admin')} className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${currentView === 'admin' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-800 border-zinc-700 text-blue-500 hover:bg-zinc-700'}`} title="Painel Admin">
+                      <i className="fa-solid fa-gear"></i>
+                    </button>
+                  )}
+                  <button onClick={() => {setUser(null); setIsAdmin(false); setCurrentView("home");}} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-red-400 transition-colors"><i className="fa-solid fa-power-off"></i></button>
                 </div>
               ) : (
                 <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg transition-all active:scale-95">Entrar</button>
@@ -193,7 +256,8 @@
           </header>
 
           <div className="flex flex-1 overflow-hidden">
-            <aside className="w-64 bg-[#0f0f0f] border-r border-[#222] overflow-y-auto hidden lg:block">
+            {/* SIDEBAR */}
+            <aside className={`w-64 bg-[#0f0f0f] border-r border-[#222] overflow-y-auto hidden lg:block ${currentView === 'admin' ? 'opacity-50 pointer-events-none' : ''}`}>
                <div className="p-4">
                   <h3 className="px-4 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Módulos</h3>
                   <button onClick={() => { setActiveCategory("Todos os Treinamentos"); setCurrentView("home"); }} className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-all ${activeCategory === "Todos os Treinamentos" && currentView === 'home' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:bg-white/5'}`}>
@@ -207,7 +271,9 @@
                </div>
             </aside>
 
+            {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto bg-[#0a0a0a] p-6 lg:p-10">
+              
               {currentView === 'home' && (
                 <div className="max-w-7xl mx-auto animate-fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
@@ -264,17 +330,15 @@
                     </form>
 
                     <div className="space-y-6">
-                       {comments.map(comment => (
-                         <div key={comment.id} className="flex gap-4 animate-fade-in group">
-                           <div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center text-blue-200 font-bold flex-shrink-0 text-sm">
-                             {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'U'}
-                           </div>
-                           <div className="flex flex-col">
-                             <div className="flex items-center gap-2">
-                               <span className="font-semibold text-[13px]">{comment.authorName}</span>
-                               <span className="text-[11px] text-gray-500">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                       {comments.map((c, i) => (
+                         <div key={i} className="flex gap-4 animate-fade-in group">
+                           <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 group-hover:bg-blue-600 transition-all">{c.authorName ? c.authorName[0].toUpperCase() : '?'}</div>
+                           <div className="flex-1 bg-[#121212] p-5 rounded-3xl border border-[#222]">
+                             <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-bold text-gray-100">{c.authorName}</span>
+                                <span className="text-[10px] text-gray-600 font-bold uppercase">{new Date(c.createdAt).toLocaleDateString()}</span>
                              </div>
-                             <p className="text-sm text-gray-400 mt-1">{comment.text}</p>
+                             <p className="text-sm text-gray-400">{c.text}</p>
                            </div>
                          </div>
                        ))}
@@ -282,12 +346,105 @@
                   </div>
                 </div>
               )}
+
+              {/* VISTA ADMINISTRATIVA INTEGRADA */}
+              {currentView === 'admin' && isAdmin && (
+                <div className="max-w-6xl mx-auto animate-fade-in pb-20">
+                   <div className="flex items-center justify-between mb-12">
+                      <div className="flex items-center gap-4">
+                         <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-900/30">
+                            <i className="fa-solid fa-fingerprint text-white text-xl"></i>
+                         </div>
+                         <h2 className="text-3xl font-black text-white tracking-tighter">Painel Master <span className="text-blue-500 font-light">EDW</span></h2>
+                      </div>
+                      <div className="flex gap-3">
+                         <button onClick={() => setShowVideoForm(!showVideoForm)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-all active:scale-95">
+                           {showVideoForm ? 'Fechar Cadastro' : 'Cadastrar Nova Aula'}
+                         </button>
+                         <button onClick={loadData} className="bg-zinc-800 text-gray-300 p-2.5 rounded-xl border border-zinc-700 hover:text-white transition-colors">
+                           <i className="fa-solid fa-rotate"></i>
+                         </button>
+                      </div>
+                   </div>
+
+                   {showVideoForm && (
+                     <div className="bg-[#141414] p-8 rounded-[2rem] border border-blue-500/20 shadow-2xl mb-12 animate-fade-in">
+                        <h3 className="text-xl font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-plus-circle text-blue-500"></i> Novo Treinamento</h3>
+                        <form onSubmit={handleAddVideo} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <input type="text" required placeholder="Título da Aula" className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm" value={newVideo.title} onChange={e=>setNewVideo({...newVideo, title: e.target.value})} />
+                           <select className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm" value={newVideo.category} onChange={e=>setNewVideo({...newVideo, category: e.target.value})}>
+                             {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
+                           </select>
+                           <input type="text" required placeholder="Duração (ex: 05:40)" className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm" value={newVideo.duration} onChange={e=>setNewVideo({...newVideo, duration: e.target.value})} />
+                           <input type="text" required placeholder="ID do Google Drive" className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm" value={newVideo.driveId} onChange={e=>setNewVideo({...newVideo, driveId: e.target.value})} />
+                           <input type="text" required placeholder="URL da Foto de Capa" className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm md:col-span-2" value={newVideo.thumb} onChange={e=>setNewVideo({...newVideo, thumb: e.target.value})} />
+                           <input type="text" placeholder="Link de Download (Opcional)" className="bg-black border border-blue-900/30 p-3 rounded-xl outline-none focus:border-blue-500 text-sm md:col-span-2" value={newVideo.downloadLink} onChange={e=>setNewVideo({...newVideo, downloadLink: e.target.value})} />
+                           <textarea rows="2" placeholder="O que se aprende nesta aula?" className="bg-black border border-[#333] p-3 rounded-xl outline-none focus:border-blue-500 text-sm md:col-span-2" value={newVideo.description} onChange={e=>setNewVideo({...newVideo, description: e.target.value})}></textarea>
+                           <button type="submit" className="md:col-span-2 bg-blue-600 hover:bg-blue-700 py-3.5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-900/20">Guardar na Planilha Master</button>
+                        </form>
+                     </div>
+                   )}
+
+                   <div className="space-y-12">
+                      <section>
+                         <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-6">Gestão de Equipa</h3>
+                         <div className="bg-[#111] rounded-[2rem] overflow-hidden border border-[#222] shadow-2xl">
+                           <table className="w-full text-left text-sm">
+                             <thead className="bg-[#181818] text-gray-500 uppercase text-[10px] tracking-widest font-black">
+                               <tr><th className="px-8 py-6">Utilizador</th><th className="px-8 py-6">Senha</th><th className="px-8 py-6">Cargo</th><th className="px-8 py-6 text-center">Ações</th></tr>
+                             </thead>
+                             <tbody className="divide-y divide-[#222]">
+                               {registeredUsers.map((u, i) => (
+                                 <tr key={i} className="hover:bg-[#151515] transition-colors group">
+                                   <td className="px-8 py-6 font-bold text-gray-100">{u.name}<br/><span className="text-xs text-gray-500 font-normal">{u.email}</span></td>
+                                   <td className="px-8 py-6 font-mono text-[10px] text-gray-600">{u.password}</td>
+                                   <td className="px-8 py-6">
+                                      <span className={`px-2 py-1 rounded text-[9px] font-black uppercase border ${u.role === 'admin' ? 'bg-red-600/20 text-red-500 border-red-500/20' : 'bg-blue-600/10 text-blue-400 border-blue-500/10'}`}>
+                                        {u.role || 'user'}
+                                      </span>
+                                   </td>
+                                   <td className="px-8 py-6 text-center flex justify-center gap-3">
+                                      <button onClick={() => handleUpdateRole(u.email, u.role)} className="w-9 h-9 rounded-xl bg-zinc-800 text-gray-400 hover:text-yellow-500 shadow-sm transition-colors" title="Mudar Cargo"><i className="fa-solid fa-user-shield text-xs"></i></button>
+                                      <button onClick={() => handleDeleteUser(u.email)} className="w-9 h-9 rounded-xl bg-red-600/10 text-red-500 hover:bg-red-600 shadow-sm transition-colors" title="Remover"><i className="fa-solid fa-trash-can text-xs"></i></button>
+                                   </td>
+                                 </tr>
+                               ))}
+                             </tbody>
+                           </table>
+                         </div>
+                      </section>
+
+                      <section>
+                         <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-6">Aulas na Planilha</h3>
+                         <div className="bg-[#111] rounded-[2rem] overflow-hidden border border-[#222] shadow-2xl">
+                           <table className="w-full text-left text-sm">
+                             <thead className="bg-[#181818] text-gray-500 uppercase text-[10px] tracking-widest font-black">
+                               <tr><th className="px-8 py-6">Título</th><th className="px-8 py-6">Módulo</th><th className="px-8 py-6 text-center">Remover</th></tr>
+                             </thead>
+                             <tbody className="divide-y divide-[#222]">
+                               {sheetVideos.map((v, i) => (
+                                 <tr key={i} className="hover:bg-[#151515] transition-colors">
+                                   <td className="px-8 py-6 font-bold text-gray-100">{v.title}</td>
+                                   <td className="px-8 py-6 text-gray-400 font-medium">{v.category}</td>
+                                   <td className="px-8 py-6 text-center">
+                                      <button onClick={() => handleDeleteVideo(v.id)} className="w-9 h-9 rounded-xl bg-red-600/10 text-red-500 hover:bg-red-600 shadow-sm transition-colors"><i className="fa-solid fa-trash text-xs"></i></button>
+                                   </td>
+                                 </tr>
+                               ))}
+                               {sheetVideos.length === 0 && <tr><td colSpan="3" className="px-8 py-10 text-center text-gray-600 italic">Nenhum vídeo novo na aba 'aulas' ainda.</td></tr>}
+                             </tbody>
+                           </table>
+                         </div>
+                      </section>
+                   </div>
+                </div>
+              )}
             </main>
           </div>
 
           {showAuthModal && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-xl">
-              <div className="bg-[#0f0f0f] p-10 rounded-[2.5rem] border border-[#222] w-full max-w-md relative animate-fade-in shadow-2xl">
+              <div className="bg-[#181818] p-10 rounded-[2.5rem] border border-[#222] w-full max-w-md relative animate-fade-in shadow-2xl">
                 <button onClick={() => {setShowAuthModal(false); setAuthError("");}} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
                 <div className="text-center mb-10">
                    <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white text-2xl mx-auto mb-4 font-black shadow-2xl italic">E</div>
@@ -298,7 +455,7 @@
                   {authMode === 'register' && <input type="text" placeholder="Nome Completo" required className="w-full bg-[#121212] border border-[#333] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authName} onChange={e=>setAuthName(e.target.value)} />}
                   <input type="email" placeholder="E-mail" required className="w-full bg-[#121212] border border-[#333] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} />
                   <input type="password" placeholder="Senha" required className="w-full bg-[#121212] border border-[#333] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
-                  <button type="submit" className="w-full bg-blue-600 py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all uppercase tracking-widest mt-4">Confirmar</button>
+                  <button type="submit" className="w-full bg-blue-600 py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all uppercase tracking-widest mt-4 shadow-xl active:scale-95 shadow-blue-900/30">Confirmar</button>
                 </form>
                 <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(""); }} className="w-full text-center mt-10 text-xs font-bold text-gray-600 hover:text-blue-400 uppercase tracking-widest transition-colors font-medium">
                    {authMode === 'login' ? 'Pedir acesso' : 'Já tem conta?'}

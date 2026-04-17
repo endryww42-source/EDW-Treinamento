@@ -31,8 +31,7 @@
 
     const CATEGORIES = ["Todos os Treinamentos", "Digitação", "FGTS", "Aumento de Margem", "Portabilidade", "Sistemas", "Ferramentas"];
 
-    // --- VÍDEOS FIXOS ---
-    // Apenas "Colocar Extensão manual" (ID 3) usa o caminho assets
+    // --- VÍDEOS FIXOS COM LINKS EXTERNOS (UNSPLASH) ---
     const INITIAL_VIDEOS = [
       { id: 1, title: "Aula FGTS V8", category: "FGTS", duration: "4:52", thumb: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=640", driveId: "1LvZ5VGF9NH7gUYrgcIFWNIb7Bx8BHjS8", description: "Treinamento operacional FGTS na plataforma V8." },
       { 
@@ -50,7 +49,7 @@
         title: "Colocar Extensão manual", 
         category: "Ferramentas", 
         duration: "8:59", 
-        thumb: "./assets/img/colocar_extensao_manual.png", // ÚNICO USANDO ASSETS
+        thumb: "./assets/img/colocar_extensao_manual.png", // ÚNICO USANDO ASSETS LOCAL
         driveId: "19lnhQSdCZoo0Uo0S3fx9l7mjlVp8E162", 
         description: "Passo a passo para instalação de extensões necessárias.",
         downloadLink: "https://drive.google.com/file/d/1zrQnlIr7NTBVQJVe8487aIAZiSnMsUv9/view?usp=drive_link"
@@ -188,7 +187,7 @@
                   <button onClick={() => {setUser(null); setIsAdmin(false);}} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-red-400"><i className="fa-solid fa-power-off"></i></button>
                 </div>
               ) : (
-                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg transition-all">Entrar</button>
+                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg transition-all active:scale-95">Entrar</button>
               )}
             </div>
           </header>
@@ -288,10 +287,10 @@
 
           {showAuthModal && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-xl">
-              <div className="bg-[#181818] p-10 rounded-[2.5rem] border border-[#222] w-full max-w-md relative animate-fade-in shadow-2xl">
+              <div className="bg-[#0f0f0f] p-10 rounded-[2.5rem] border border-[#222] w-full max-w-md relative animate-fade-in shadow-2xl">
                 <button onClick={() => {setShowAuthModal(false); setAuthError("");}} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
                 <div className="text-center mb-10">
-                   <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white text-2xl mx-auto mb-4 font-black italic shadow-2xl">E</div>
+                   <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white text-2xl mx-auto mb-4 font-black shadow-2xl italic">E</div>
                    <h2 className="text-3xl font-black text-white">{authMode === 'login' ? 'Entrar' : 'Novo Registo'}</h2>
                 </div>
                 {authError && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl mb-8 text-xs font-bold leading-relaxed">{authError}</div>}

@@ -40,14 +40,13 @@
 
     // --- CONFIGURAÇÃO DO FIREBASE ---
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-      apiKey: "COLE_AQUI_SUA_API_KEY",
-      authDomain: "SEU_PROJETO.firebaseapp.com",
-      projectId: "SEU_PROJETO",
-      storageBucket: "SEU_PROJETO.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef"
+      apiKey: "AIzaSyDcG...", // A sua chave real que copiou
+      authDomain: "edw-treinamentos-61d06.firebaseapp.com",
+      projectId: "edw-treinamentos-61d06",
+      storageBucket: "edw-treinamentos-61d06.firebasestorage.app",
+      messagingSenderId: "75949574229",
+      appId: "1:75949574229:web:9c2a..."
     };
-
     let app, auth, db, appId = firebaseConfig.projectId || 'default-app-id';
     try {
       app = initializeApp(firebaseConfig);

@@ -26,11 +26,44 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useMemo } = React;
 
     const SHEETDB_API_URL = "https://sheetdb.io/api/v1/tpv90ot57kp83";
 
     const CATEGORIES = ["Todos os Treinamentos", "Digitação", "FGTS", "Aumento de Margem", "Portabilidade", "Sistemas", "Ferramentas"];
+
+    // --- VÍDEOS QUE FICAM FIXOS NO CÓDIGO ---
+    const INITIAL_VIDEOS = [
+      { id: 1, title: "Aula FGTS V8", category: "FGTS", duration: "4:52", thumb: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=640", driveId: "1LvZ5VGF9NH7gUYrgcIFWNIb7Bx8BHjS8", description: "Treinamento operacional FGTS na plataforma V8." },
+      { 
+        id: 2, 
+        title: "Como Filtrar Dados das planilhas bagunçadas da V8", 
+        category: "Sistemas", 
+        duration: "12:13", 
+        thumb: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640", 
+        driveId: "19vRifEQXqrElPpAAdbJixIB0zvpum0Kn", 
+        description: "Aprenda a organizar os dados extraídos da V8.",
+        downloadLink: "https://drive.google.com/file/d/1I68FooitfUmK8HRK2MGd54oxJtZ4TgrQ/view?usp=drive_link" // LINK RESTAURADO
+      },
+      { 
+        id: 3, 
+        title: "Colocar Extensão manual", 
+        category: "Ferramentas", 
+        duration: "8:59", 
+        thumb: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=640", 
+        driveId: "19lnhQSdCZoo0Uo0S3fx9l7mjlVp8E162", 
+        description: "Passo a passo para instalação de extensões necessárias.",
+        downloadLink: "https://drive.google.com/file/d/1zrQnlIr7NTBVQJVe8487aIAZiSnMsUv9/view?usp=drive_link" // LINK RESTAURADO
+      },
+      { id: 4, title: "Digitação BMG Aumento de Margem", category: "Aumento de Margem", duration: "4:45", thumb: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=640", driveId: "1eoayq9v-zoyOkHnSNlSaJWAVpRAoI7-Q", description: "Como realizar digitação de aumento de margem no BMG." },
+      { id: 5, title: "Digitação BMG Aumento de Margem1", category: "Aumento de Margem", duration: "4:45", thumb: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=640", driveId: "1OYVoPUG0BZLjPQlSDAEG5qYeb2RgeVIW", description: "Continuação do treinamento de digitação BMG." },
+      { id: 6, title: "Digitação BRB", category: "Digitação", duration: "1:56", thumb: "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?w=640", driveId: "1XrpG2BMqQyNVm0wJH4skHr7QESL9MFjS", description: "Treinamento rápido para digitação no banco BRB." },
+      { id: 7, title: "Digitação FACTA Aumento de margem INSS", category: "Aumento de Margem", duration: "8:53", thumb: "https://images.unsplash.com/photo-1556740714-a8395b3bf30f?w=640", driveId: "1v8H4RBaj2NDvrXQJbNZWhavhF_ODfN2_", description: "Operacional Facta para aumento de margem INSS." },
+      { id: 8, title: "Digitação FGTS Facta Financeira", category: "FGTS", duration: "6:23", thumb: "https://images.unsplash.com/photo-1579621970588-a35d0e7ab9b6?w=640", driveId: "1Wb3_b0P4P9EM_jtwGg3R6oug6EBDpVDY", description: "Como digitar propostas de FGTS na Facta." },
+      { id: 9, title: "Digitação Novo 360bank", category: "Digitação", duration: "3:20", thumb: "https://images.unsplash.com/photo-1616803140344-6682afb13cda?w=640", driveId: "1-2XcPk0ZZrjOcF16GMN5Oj_BCmVlEv9-", description: "Treinamento completo para o novo sistema 360bank." },
+      { id: 10, title: "Digitação Portabilidade (REP LE) Facta Financeira", category: "Portabilidade", duration: "7:25", thumb: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=640", driveId: "1j8Ai53hbtzJIG_Zy_5e9PoC8rN9Fj82n", description: "Processo de portabilidade na Facta Financeira." },
+      { id: 11, title: "Usar as ferramentas de disparo whatsapp", category: "Ferramentas", duration: "5:43", thumb: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=640", driveId: "1pd2PyBNanGWoLCIiRb3Px_WjTw8FR2RX", description: "Como operar as ferramentas de automação de WhatsApp." }
+    ];
 
     function App() {
       const [currentView, setCurrentView] = useState("home");
@@ -47,7 +80,7 @@
       const [authError, setAuthError] = useState("");
       
       const [registeredUsers, setRegisteredUsers] = useState([]);
-      const [allVideos, setAllVideos] = useState([]); 
+      const [sheetVideos, setSheetVideos] = useState([]); 
       const [comments, setComments] = useState([]);
       const [newComment, setNewComment] = useState("");
       const [editingUser, setEditingUser] = useState(null);
@@ -71,11 +104,15 @@
         try {
           const res = await fetch(`${SHEETDB_API_URL}?sheet=aulas`);
           const data = await res.json();
-          if (Array.isArray(data)) setAllVideos(data.reverse());
+          if (Array.isArray(data)) setSheetVideos(data);
         } catch (e) { console.error("Erro ao carregar aulas."); }
       };
 
       useEffect(() => { loadUsers(); loadVideos(); }, []);
+
+      const allVideos = useMemo(() => {
+        return [...INITIAL_VIDEOS, ...sheetVideos];
+      }, [sheetVideos]);
 
       useEffect(() => {
         if (currentView === 'video' && currentVideo) {
@@ -93,6 +130,7 @@
           setUser(found);
           setIsAdmin(found.role === 'admin');
           setShowAuthModal(false);
+          setAuthError("");
         } else {
           setAuthError("Dados incorretos.");
         }
@@ -126,7 +164,7 @@
             body: JSON.stringify({ data: [videoData] })
           });
           if (res.ok) {
-            setAllVideos([videoData, ...allVideos]);
+            setSheetVideos([videoData, ...sheetVideos]);
             setNewVideo({ title: "", category: "Digitação", duration: "", thumb: "", driveId: "", description: "", downloadLink: "" });
             setShowVideoForm(false);
           }
@@ -137,7 +175,7 @@
         if (!confirm("Remover esta aula definitivamente?")) return;
         try {
           const res = await fetch(`${SHEETDB_API_URL}/id/${id}?sheet=aulas`, { method: 'DELETE' });
-          if (res.ok) setAllVideos(allVideos.filter(v => v.id != id));
+          if (res.ok) setSheetVideos(sheetVideos.filter(v => v.id != id));
         } catch (e) {}
       };
 
@@ -152,13 +190,13 @@
           });
           if (res.ok) {
             setRegisteredUsers(registeredUsers.map(u => u.email === email ? { ...u, role: newRole } : u));
-            if (user.email === email) setIsAdmin(newRole === 'admin');
+            if (user && user.email === email) setIsAdmin(newRole === 'admin');
           }
         } catch (e) {}
       };
 
       const handleDeleteUser = async (email) => {
-        if (!confirm(`Remover permanentemente o acesso de ${email}?`)) return;
+        if (!confirm(`Remover acesso de ${email}?`)) return;
         try {
           const res = await fetch(`${SHEETDB_API_URL}/email/${email}?sheet=usuarios`, { method: 'DELETE' });
           if (res.ok) setRegisteredUsers(registeredUsers.filter(u => u.email !== email));
@@ -167,7 +205,10 @@
 
       const handleAddComment = async (e) => {
         e.preventDefault();
+        // Bloqueio apenas no momento de enviar
+        if (!user) { setShowAuthModal(true); return; }
         if (!newComment.trim()) return;
+        
         const commentObj = { videoId: currentVideo.id, text: newComment, authorName: user.name, authorEmail: user.email, createdAt: new Date().toISOString() };
         try {
           const res = await fetch(`${SHEETDB_API_URL}?sheet=comentarios`, {
@@ -186,7 +227,7 @@
 
       return (
         <div className="flex flex-col h-screen overflow-hidden font-sans">
-          {/* HEADER */}
+          
           <header className="flex items-center justify-between px-6 h-16 bg-[#0f0f0f] border-b border-[#222] sticky top-0 z-50">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => {setCurrentView("home"); setActiveCategory("Todos os Treinamentos");}}>
               <div className="bg-blue-600 p-2 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
@@ -197,7 +238,7 @@
             
             <div className="flex-1 max-w-xl mx-8 hidden sm:block">
               {currentView !== 'admin' && (
-                <div className="flex items-center bg-[#181818] border border-[#333] rounded-full px-5 py-2 focus-within:border-blue-500/50 transition-all">
+                <div className="flex items-center bg-[#181818] border border-[#333] rounded-full px-5 py-2 focus-within:border-blue-500 transition-all">
                   <i className="fa-solid fa-magnifying-glass text-gray-500 mr-3 text-xs"></i>
                   <input type="text" placeholder="Pesquisar treinamento..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="bg-transparent outline-none w-full text-sm text-gray-200" />
                 </div>
@@ -215,13 +256,12 @@
                   <button onClick={() => {setUser(null); setIsAdmin(false); setCurrentView("home");}} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-red-400 transition-colors"><i className="fa-solid fa-power-off"></i></button>
                 </div>
               ) : (
-                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg transition-all active:scale-95">Entrar</button>
+                <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg active:scale-95 transition-all">Entrar</button>
               )}
             </div>
           </header>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* SIDEBAR */}
             <aside className="w-64 bg-[#0f0f0f] border-r border-[#222] overflow-y-auto hidden lg:block">
                <div className="p-4">
                   <h3 className="px-4 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Módulos</h3>
@@ -236,25 +276,23 @@
                </div>
             </aside>
 
-            {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto bg-[#0a0a0a] p-6 lg:p-10">
               {currentView === 'home' && (
                 <div className="max-w-7xl mx-auto animate-fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
                     {filteredVideos.map(v => (
-                      <div key={v.id} onClick={() => { if(!user) setShowAuthModal(true); else { setCurrentVideo(v); setCurrentView("video"); window.scrollTo(0,0); } }} className="cursor-pointer group">
+                      <div key={v.id} onClick={() => { setCurrentVideo(v); setCurrentView("video"); window.scrollTo(0,0); }} className="cursor-pointer group">
                         <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-[#222] shadow-xl transition-all group-hover:border-blue-500/50 group-hover:scale-[1.02]">
                           <img src={v.thumb} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
                              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl scale-75 group-hover:scale-100 transition-transform"><i className="fa-solid fa-play ml-1"></i></div>
                           </div>
-                          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 backdrop-blur-md rounded text-[10px] font-bold text-white border border-white/10">{v.duration}</div>
+                          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 backdrop-blur-md rounded text-[10px] font-bold text-white border border-white/10 tracking-widest">{v.duration}</div>
                         </div>
                         <h3 className="text-[15px] font-bold text-gray-100 line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors">{v.title}</h3>
                         <p className="text-[10px] text-gray-600 uppercase mt-1 font-bold tracking-widest">{v.category}</p>
                       </div>
                     ))}
-                    {allVideos.length === 0 && <div className="col-span-full py-20 text-center text-gray-500">Nenhum treinamento disponível na planilha.</div>}
                   </div>
                 </div>
               )}
@@ -280,16 +318,27 @@
                   <p className="text-gray-400 mt-4 text-sm leading-relaxed">{currentVideo.description || "Treinamento Operacional EDW."}</p>
                   
                   <div className="mt-10 pt-8 border-t border-[#222]">
-                    <h3 className="text-lg font-bold text-white mb-6">Dúvidas ({comments.length})</h3>
+                    <h3 className="text-lg font-bold text-white mb-6">Espaço de Dúvidas ({comments.length})</h3>
+                    
+                    {/* FORMULÁRIO SEMPRE VISÍVEL */}
                     <form onSubmit={handleAddComment} className="mb-10 bg-[#141414] p-5 rounded-3xl border border-[#222] flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center font-bold text-blue-200 shrink-0">{user.name[0].toUpperCase()}</div>
+                       <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center font-bold text-blue-200 shrink-0">
+                         {user ? user.name[0].toUpperCase() : <i className="fa-regular fa-user text-xs"></i>}
+                       </div>
                        <div className="flex-1">
-                          <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Tire a sua dúvida..." className="w-full bg-transparent border-none outline-none text-sm text-gray-200 resize-none min-h-[60px]" rows="2"></textarea>
+                          <textarea 
+                            value={newComment} 
+                            onChange={e => setNewComment(e.target.value)} 
+                            placeholder="Escreva a sua dúvida ou sugestão aqui..." 
+                            className="w-full bg-transparent border-none outline-none text-sm text-gray-200 resize-none min-h-[60px]" 
+                            rows="2"
+                          ></textarea>
                           <div className="flex justify-end pt-3 border-t border-[#222]">
                              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50" disabled={!newComment.trim()}>Enviar</button>
                           </div>
                        </div>
                     </form>
+
                     <div className="space-y-6">
                        {comments.map((c, i) => (
                          <div key={i} className="flex gap-4 animate-fade-in group">
@@ -297,7 +346,7 @@
                            <div className="flex-1 bg-[#121212] p-5 rounded-3xl border border-[#222]">
                              <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-bold text-gray-100">{c.authorName}</span>
-                                <span className="text-[10px] text-gray-600 font-bold">{new Date(c.createdAt).toLocaleDateString()}</span>
+                                <span className="text-[10px] text-gray-600 font-bold uppercase">{new Date(c.createdAt).toLocaleDateString()}</span>
                              </div>
                              <p className="text-sm text-gray-400">{c.text}</p>
                            </div>
@@ -323,44 +372,22 @@
                   {/* FORM NOVO VÍDEO */}
                   {showVideoForm && (
                     <div className="bg-[#181818] p-8 rounded-3xl border border-blue-500/30 mb-10 shadow-2xl">
-                       <h3 className="text-xl font-bold mb-6 text-white">Cadastrar Treinamento</h3>
+                       <h3 className="text-xl font-bold mb-6 text-white">Cadastrar Treinamento (Salvar Planilha)</h3>
                        <form onSubmit={handleAddVideo} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="flex flex-col gap-1">
-                             <label className="text-xs text-gray-500 font-bold uppercase">Título da Aula</label>
-                             <input type="text" required placeholder="Ex: Digitação Master" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.title} onChange={e=>setNewVideo({...newVideo, title: e.target.value})} />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                             <label className="text-xs text-gray-500 font-bold uppercase">Módulo</label>
-                             <select className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.category} onChange={e=>setNewVideo({...newVideo, category: e.target.value})}>
-                                {CATEGORIES.slice(1).map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                             </select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                             <label className="text-xs text-gray-500 font-bold uppercase">Duração</label>
-                             <input type="text" required placeholder="ex: 05:40" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.duration} onChange={e=>setNewVideo({...newVideo, duration: e.target.value})} />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                             <label className="text-xs text-gray-500 font-bold uppercase">ID Google Drive</label>
-                             <input type="text" required placeholder="Cole o ID do vídeo" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.driveId} onChange={e=>setNewVideo({...newVideo, driveId: e.target.value})} />
-                          </div>
-                          <div className="flex flex-col gap-1 md:col-span-2">
-                             <label className="text-xs text-gray-500 font-bold uppercase">Capa (URL da Imagem)</label>
-                             <input type="text" required placeholder="https://..." className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.thumb} onChange={e=>setNewVideo({...newVideo, thumb: e.target.value})} />
-                          </div>
-                          <div className="flex flex-col gap-1 md:col-span-2">
-                             <label className="text-xs text-blue-400 font-bold uppercase">Link para Download (Opcional - Programa/Ficheiro)</label>
-                             <input type="text" placeholder="Cole o link direto do programa ou material" className="bg-black border border-blue-500/30 p-3 rounded-xl outline-none" value={newVideo.downloadLink} onChange={e=>setNewVideo({...newVideo, downloadLink: e.target.value})} />
-                          </div>
-                          <div className="flex flex-col gap-1 md:col-span-2">
-                             <label className="text-xs text-gray-500 font-bold uppercase">Descrição</label>
-                             <textarea rows="2" placeholder="O que se aprende nesta aula?" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.description} onChange={e=>setNewVideo({...newVideo, description: e.target.value})}></textarea>
-                          </div>
+                          <input type="text" required placeholder="Título da Aula" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.title} onChange={e=>setNewVideo({...newVideo, title: e.target.value})} />
+                          <select className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.category} onChange={e=>setNewVideo({...newVideo, category: e.target.value})}>
+                             {CATEGORIES.slice(1).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          </select>
+                          <input type="text" required placeholder="Duração (ex: 05:40)" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.duration} onChange={e=>setNewVideo({...newVideo, duration: e.target.value})} />
+                          <input type="text" required placeholder="ID do Google Drive" className="bg-black border border-[#333] p-3 rounded-xl outline-none" value={newVideo.driveId} onChange={e=>setNewVideo({...newVideo, driveId: e.target.value})} />
+                          <input type="text" required placeholder="URL da Capa" className="bg-black border border-[#333] p-3 rounded-xl outline-none md:col-span-2" value={newVideo.thumb} onChange={e=>setNewVideo({...newVideo, thumb: e.target.value})} />
+                          <input type="text" placeholder="Link de Download (Opcional)" className="bg-black border border-[#333] p-3 rounded-xl outline-none md:col-span-2" value={newVideo.downloadLink} onChange={e=>setNewVideo({...newVideo, downloadLink: e.target.value})} />
+                          <textarea rows="2" placeholder="O que se aprende nesta aula?" className="bg-black border border-[#333] p-3 rounded-xl outline-none md:col-span-2" value={newVideo.description} onChange={e=>setNewVideo({...newVideo, description: e.target.value})}></textarea>
                           <button type="submit" className="md:col-span-2 bg-blue-600 hover:bg-blue-700 py-3 rounded-2xl font-bold uppercase tracking-widest shadow-xl">Guardar na Planilha</button>
                        </form>
                     </div>
                   )}
 
-                  {/* TABELAS DE GESTÃO */}
                   <h3 className="text-sm font-bold mb-4 text-gray-400 uppercase tracking-widest">Utilizadores e Acessos</h3>
                   <div className="bg-[#141414] rounded-[2rem] overflow-hidden border border-[#222] shadow-2xl mb-12">
                     <table className="w-full text-left text-sm">
@@ -389,14 +416,14 @@
                     </table>
                   </div>
 
-                  <h3 className="text-sm font-bold mb-4 text-gray-400 uppercase tracking-widest">Treinamentos Cadastrados</h3>
+                  <h3 className="text-sm font-bold mb-4 text-gray-400 uppercase tracking-widest">Aulas da Planilha</h3>
                   <div className="bg-[#141414] rounded-[2rem] overflow-hidden border border-[#222] shadow-2xl">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-[#0f0f0f] text-gray-500 uppercase text-[10px] tracking-[2px] font-black">
                         <tr><th className="px-8 py-6">Título</th><th className="px-8 py-6">Módulo</th><th className="px-8 py-6 text-center">Ações</th></tr>
                       </thead>
                       <tbody className="divide-y divide-[#222]">
-                        {allVideos.map((v, i) => (
+                        {sheetVideos.map((v, i) => (
                           <tr key={i} className="hover:bg-[#181818] transition-colors">
                             <td className="px-8 py-6 font-bold text-gray-100">{v.title}</td>
                             <td className="px-8 py-6 text-gray-400 font-medium">{v.category}</td>
@@ -405,6 +432,7 @@
                             </td>
                           </tr>
                         ))}
+                        {sheetVideos.length === 0 && <tr><td colSpan="3" className="px-8 py-6 text-center text-gray-500 italic">Nenhum vídeo novo na planilha ainda.</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -424,9 +452,9 @@
                 </div>
                 {authError && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl mb-8 text-xs font-bold leading-relaxed">{authError}</div>}
                 <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-5">
-                  {authMode === 'register' && <input type="text" placeholder="Nome Completo" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500 transition-all" value={authName} onChange={e=>setAuthName(e.target.value)} />}
-                  <input type="email" placeholder="E-mail" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500 transition-all" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} />
-                  <input type="password" placeholder="Senha" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500 transition-all" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
+                  {authMode === 'register' && <input type="text" placeholder="Nome Completo" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authName} onChange={e=>setAuthName(e.target.value)} />}
+                  <input type="email" placeholder="E-mail" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} />
+                  <input type="password" placeholder="Senha" required className="w-full bg-[#181818] border border-[#222] p-4 rounded-2xl outline-none text-sm focus:border-blue-500" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} />
                   <button type="submit" className="w-full bg-blue-600 py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all uppercase tracking-widest mt-4 shadow-xl active:scale-95">Continuar</button>
                 </form>
                 <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(""); }} className="w-full text-center mt-10 text-xs font-bold text-gray-600 hover:text-blue-400 uppercase tracking-widest transition-colors font-medium">
